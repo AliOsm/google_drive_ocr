@@ -189,7 +189,7 @@ class GoogleOCRApplication:
             "parents": [self.upload_folder_id],
         }
     
-        media = MediaFileUpload(img_path, mimetype=mimetype, chunksize=CHUNKSIZE)
+        media = MediaFileUpload(img_path, mimetype=mimetype, chunksize=CHUNKSIZE, resumable=True)
         request = self.drive_service.files().create(
             body=file_metadata, media_body=media, fields="id, name"
         )
