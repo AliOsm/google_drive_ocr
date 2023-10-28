@@ -71,7 +71,7 @@ class Status(enum.Enum):
 
 
 # Here's the new chunksize; Set it according to your requirements
-CHUNKSIZE = 256000  # i.e. 10MB
+CHUNKSIZE = 262144  # i.e. 10MB
 
 
 @dataclass
