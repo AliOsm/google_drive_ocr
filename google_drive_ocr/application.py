@@ -70,6 +70,10 @@ class Status(enum.Enum):
 ###############################################################################
 
 
+# Here's the new chunksize; Set it according to your requirements
+CHUNKSIZE = 2 * 1024 * 1024  # i.e. 10MB
+
+
 @dataclass
 class GoogleOCRApplication:
     """
@@ -159,40 +163,48 @@ class GoogleOCRApplication:
     # Drive Actions
 
     @retry()
-    def upload_image_as_document(self, img_path: str) -> str:
-        """Upload an image file as a Google Document
+def upload_image_as_document(self, img_path: str) -> str:
+    """Upload an image file as Google Document
 
-        Parameters
-        ----------
-        img_path : str
-            Path to the image file
+    Parameters
+    ----------
+    img_path : str
+        Path to the image file
 
-        Returns
-        -------
-        str
-            ID of the uploaded Google document
-        """
-        img_filename = os.path.basename(img_path)
-        mimetype, _encoding = mimetypes.guess_type(img_path)
+    Returns
+    -------
+    str
+        ID of the uploaded Google document
+    """
+    img_filename = os.path.basename(img_path)
+    mimetype, _encoding = mimetypes.guess_type(img_path)
 
-        if mimetype is None:
-            LOGGER.warning("MIME type of the image could not be inferred.")
-            mimetype = "image/png"
+    if mimetype is None:
+        LOGGER.warning("MIME type of the image could not be inferred.")
+        mimetype = "image/png"
 
-        file_metadata = {
-            "name": img_filename,
-            "mimeType": "application/vnd.google-apps.document",
-            "parents": [self.upload_folder_id],
-        }
+    file_metadata = {
+        "name": img_filename,
+        "mimeType": "application/vnd.google-apps.document",
+        "parents": [self.upload_folder_id],
+    }
 
-        media = MediaFileUpload(img_path, mimetype=mimetype, resumable=True, chunksize=2097152)
-        file = self.drive_service.files().create(
-            body=file_metadata, media_body=media, fields="id, name"
-        ).execute()
-        file_id = file.get("id")
-        file_name = file.get("name")
-        LOGGER.info(f"File uploaded: '{file_name}' (id: '{file_id}')")
-        return file_id
+    media = MediaFileUpload(img_path, mimetype=mimetype, chunksize=CHUNKSIZE)
+    request = self.drive_service.files().create(
+        body=file_metadata, media_body=media, fields="id, name"
+    )
+
+    #Here's how you can actually upload chunks
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if status:
+            LOGGER.info(f"Uploaded {int(status.progress() * 100)}%")
+    file_id = response.get("id")
+    file_name = response.get("name")
+    
+    LOGGER.info(f"File uploaded: '{file_name}' (id: '{file_id}')")
+    return file_id
 
     @retry()
     def download_document_as_text(self, file_id: str, output_path: str):
